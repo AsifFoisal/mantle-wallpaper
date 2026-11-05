@@ -1,0 +1,14 @@
+{
+  "AppVersion": "1.0.0.0",
+  "Title": "Mantle",
+  "Thumbnail": "thumbnail.jpg",
+  "Preview": "thumbnail.jpg",
+  "Desc": "An interactive wallpaper that becomes a personal desktop organizer. Floating collections, a quick-launch dock and instant search — served by the local Mantle companion at 127.0.0.1:7337.",
+  "Author": "Mantle",
+  "License": null,
+  "Contact": "",
+  "Type": 0,
+  "FileName": "http://127.0.0.1:7337/",
+  "Arguments": null,
+  "IsAbsolutePath": false
+}

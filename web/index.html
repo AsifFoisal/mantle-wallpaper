@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en" class="mantle">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Mantle</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; background: #060709; overflow: hidden; }
+      * { box-sizing: border-box; }
+      #boot {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        color: rgba(255,255,255,0.52); font: 12px/1.4 ui-sans-serif, system-ui, sans-serif;
+        letter-spacing: 0.32em; text-transform: uppercase;
+        transition: opacity 600ms ease;
+      }
+      #boot.gone { opacity: 0; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="boot">Mantle</div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
