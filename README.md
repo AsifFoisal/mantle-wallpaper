@@ -4,8 +4,6 @@
 
 The quiet state is just a wallpaper: a slow nebula, a large clock, a slim dock. Interaction unfolds the rest — floating collections of your real installed apps, a working taskbar with minimize/restore, instant search, and a floating settings orb you can put anywhere.
 
-![Mantle](lively/thumbnail.jpg)
-
 ---
 
 ## Table of contents
