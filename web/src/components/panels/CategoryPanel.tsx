@@ -16,6 +16,9 @@ import { pushFor, useExpandedBounds, useExpandedPanels } from "../../state/layou
 import type { Category, PanelGeometry } from "../../types";
 import { resolvePosition } from "../../hooks/useAppIndex";
 import { reorderGroup, type AppView } from "../../lib/apps";
+import { collectSnapTargets, computeSnap } from "../../lib/positioning";
+import { PositionMenu } from "../floating/PositionMenu";
+import { useDragScroll } from "../../hooks/useDragScroll";
 
 interface Props {
   category: Category;
@@ -45,6 +48,8 @@ export function CategoryPanel({ category, geometry: stored, onAddApps }: Props) 
   // hook's style writes and re-renders agree (the inner root only fills it).
   const slotRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLDivElement | null>(null);
+  const bodyScrollRef = useRef<HTMLDivElement | null>(null);
+  useDragScroll(bodyScrollRef);
   const [dragOver, setDragOver] = useState<"none" | "ok">("none");
   const [dropHint, setDropHint] = useState<{ id: string; position: "before" | "after" } | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -80,7 +85,12 @@ export function CategoryPanel({ category, geometry: stored, onAddApps }: Props) 
 
   const bodyHidden = geometry.minimized && !peek;
 
+  // After an explicit minimize/restore click the pointer is still inside the
+  // bar — without this suppression any mouse movement would instantly re-peek.
+  const suppressPeek = useRef(0);
   const hoverOpen = useCallback(() => {
+    if (document.body.classList.contains("is-dragging")) return;
+    if (Date.now() < suppressPeek.current) return;
     if (closePeek.current) window.clearTimeout(closePeek.current);
     if (geometry.minimized) setPeek(true);
   }, [geometry.minimized]);
@@ -88,16 +98,56 @@ export function CategoryPanel({ category, geometry: stored, onAddApps }: Props) 
   // waits a moment and is cancelled if the pointer comes back.
   const hoverClose = useCallback(() => {
     if (closePeek.current) window.clearTimeout(closePeek.current);
-    closePeek.current = window.setTimeout(() => setPeek(false), 260);
+    closePeek.current = window.setTimeout(() => setPeek(false), 450);
   }, []);
   useEffect(() => () => {
     if (closePeek.current) window.clearTimeout(closePeek.current);
   }, []);
 
+  // Rigid groups: dragging one member translates the whole group, preserving
+  // the members' exact relative alignment. Locked and closed members are
+  // skipped for the visual follow but still persist the delta.
+  const panelGroups = useStore((s) => s.persist.panelGroups);
+  const groupMembers = panelGroups.find((g) => g.members.includes(category.id))?.members.filter((m) => m !== category.id) ?? [];
+  const groupStart = useRef<{ sx: number; sy: number } | null>(null);
+  const [posMenu, setPosMenu] = useState<{ x: number; y: number } | null>(null);
+
   usePanelDrag(slotRef, {
     getPanel: () => slotRef.current,
-    onEnd: (x, y) => updatePanel(category.id, { x, y }),
     disabled: geometry.locked,
+    snap: (x, y, w, h) => computeSnap(x, y, w, h, viewport.w, viewport.h, collectSnapTargets(ref.current)),
+    onMove: (x, y) => {
+      if (!groupMembers.length) return;
+      if (!groupStart.current) groupStart.current = { sx: x, sy: y };
+      const dx = x - groupStart.current.sx;
+      const dy = y - groupStart.current.sy;
+      const state = useStore.getState();
+      for (const m of groupMembers) {
+        const g = state.persist.panels[m];
+        if (!g || g.locked) continue;
+        const base = resolvePosition({ x: g.x, y: g.y }, g.w, g.h, viewport);
+        const el = document.querySelector<HTMLElement>(`[data-floating-slot='panel-${m}']`);
+        if (el && g.open) {
+          el.style.left = `${base.x + dx}px`;
+          el.style.top = `${base.y + dy}px`;
+        }
+      }
+    },
+    onEnd: (x, y) => {
+      const start = groupStart.current;
+      groupStart.current = null;
+      updatePanel(category.id, { x, y });
+      if (!start || !groupMembers.length) return;
+      const dx = x - start.sx;
+      const dy = y - start.sy;
+      const state = useStore.getState();
+      for (const m of groupMembers) {
+        const g = state.persist.panels[m];
+        if (!g || g.locked) continue;
+        const base = resolvePosition({ x: g.x, y: g.y }, g.w, g.h, viewport);
+        state.updatePanel(m, { x: Math.round(base.x + dx), y: Math.round(base.y + dy) });
+      }
+    },
   });
 
   const apps = useMemo<AppView[]>(
@@ -204,6 +254,7 @@ export function CategoryPanel({ category, geometry: stored, onAddApps }: Props) 
       }}
       onPointerEnter={open ? hoverOpen : undefined}
       onPointerMove={open ? hoverOpen : undefined}
+      onPointerDown={open ? hoverOpen : undefined}
       onPointerLeave={open ? hoverClose : undefined}
       onDragOver={(e) => {
         if (!isAppDrag(e)) return;
@@ -222,7 +273,15 @@ export function CategoryPanel({ category, geometry: stored, onAddApps }: Props) 
         className="flex shrink-0 items-center gap-2.5 px-3.5 pb-2.5 pt-3"
         style={{ touchAction: "none", cursor: geometry.locked ? "default" : "auto" }}
       >
-        <DragGrip locked={geometry.locked} className="size-7 text-mist-500" />
+        <DragGrip
+          locked={geometry.locked}
+          className="size-7 text-mist-500"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setPosMenu({ x: e.clientX, y: e.clientY });
+          }}
+        />
         <span
           className="grid size-7 shrink-0 place-items-center rounded-lg border"
           style={{
@@ -249,7 +308,10 @@ export function CategoryPanel({ category, geometry: stored, onAddApps }: Props) 
           </HeaderBtn>
           <HeaderBtn
             label={geometry.minimized ? "Restore" : "Minimize"}
-            onClick={() => updatePanel(category.id, { minimized: !geometry.minimized })}
+            onClick={() => {
+              suppressPeek.current = Date.now() + 700;
+              updatePanel(category.id, { minimized: !geometry.minimized });
+            }}
           >
             {geometry.minimized ? <Maximize2 size={13} /> : <Minus size={13} />}
           </HeaderBtn>
@@ -274,7 +336,7 @@ export function CategoryPanel({ category, geometry: stored, onAddApps }: Props) 
         aria-hidden={bodyHidden}
         inert={bodyHidden ? true : undefined}
       >
-          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2" onPointerDown={(e) => e.target === e.currentTarget && clearSelect()}>
+          <div ref={bodyScrollRef} className="min-h-0 flex-1 overflow-y-auto px-2 py-2" onPointerDown={(e) => e.target === e.currentTarget && clearSelect()}>
             {apps.length === 0 ? (
               <EmptyState
                 category={category}
@@ -389,6 +451,10 @@ export function CategoryPanel({ category, geometry: stored, onAddApps }: Props) 
     </div>
     {menu && byId.get(menu.id) && createPortal(
       <AppContextMenu x={menu.x} y={menu.y} view={byId.get(menu.id)!} categories={categories} onClose={() => setMenu(null)} />,
+      document.body,
+    )}
+    {posMenu && createPortal(
+      <PositionMenu target={{ kind: "panel", categoryId: category.id }} x={posMenu.x} y={posMenu.y} onClose={() => setPosMenu(null)} />,
       document.body,
     )}
     </div>

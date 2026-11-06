@@ -106,6 +106,8 @@ Then open Lively → Library → **Mantle** → set as wallpaper. After changing
 | `↑ ↓ Enter Esc` | Search navigation |
 | Drag the clock's `;;;` grip | Move the clock |
 | Drag the settings orb | Move the orb (the orb itself is the grip) |
+| Press empty space inside a list and drag | Scroll it — a quick flick glides with momentum |
+| Middle-drag inside a list | Pan even when starting over app icons |
 | Double-click the wallpaper | Nothing — it is still a wallpaper |
 
 ---
@@ -144,6 +146,16 @@ In **Extend** mode Lively runs one wallpaper instance per display; each instance
 3. Select the second display (or *all displays*) and apply.
 
 The layout is stored per browser profile, so both instances share the same arrangement but position their floating elements independently within their own viewport. Make sure `Win + P` is set to **Extend**.
+
+---
+
+## Lively notes
+
+- **Mouse wheel is never forwarded to web wallpapers** — [Lively issue #3042](https://github.com/rocksdanister/lively/issues/3042), open as of Lively 2.2.1. All scrollable surfaces therefore ship with `useDragScroll`: press-and-drag panning with flick momentum, plus middle-button drag. Wheel scrolling still works in a browser and will start working in Lively automatically if the issue is ever fixed.
+- `install:lively` enables Lively's mouse input (`InputForward: 1`, `MouseInputMovAlways: true`) if it is off.
+- Lively renders web wallpapers in WebView2; mouse moves and clicks are forwarded, which is what the drag gestures rely on.
+- The wallpaper adapts to resolution changes; floating elements are clamped back on screen after a resize.
+- The companion is a scheduled task, so anything you pin survives reboots.
 
 ---
 
@@ -228,6 +240,7 @@ Data files (`%LOCALAPPDATA%\Mantle Wallpaper\`):
 | Minimized Store apps don't appear | Windows hosts them under `ApplicationFrameHost.exe`; they can't be matched |
 | New install not found | Settings → Applications → Rescan |
 | App icon missing | Right-click app, or rescan; the icon cache is `%LOCALAPPDATA%\Mantle Wallpaper\icons` (delete freely) |
+| Mouse wheel doesn't scroll lists in Lively | Lively never forwards wheel events to web wallpapers ([rocksdanister/lively#3042](https://github.com/rocksdanister/lively/issues/3042), open in 2.2.x, affects Wallpaper Engine too). **Press empty space in the list and drag** — flick for momentum; middle-drag pans from over icons. The wheel works in the browser |
 | Wallpaper only on one monitor | See [Multi-monitor](#multi-monitor) — assign the wallpaper to each display in Lively |
 | Floating element drags when you meant to click | It doesn't anymore — use the `;;;` grip; if a position is locked the grip is dimmed |
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useStore } from "../../state/store";
 import { useViewportSize, resolvePosition } from "../../hooks/useAppIndex";
 import { usePanelDrag } from "../floating/usePanelDrag";
@@ -8,6 +9,8 @@ import { AppIcon } from "../ui/AppIcon";
 import { launchApp, isRunning } from "../../lib/launch";
 import { mantleApi } from "../../api/mantle";
 import type { WindowInfo } from "../../types";
+import { collectSnapTargets, computeSnap } from "../../lib/positioning";
+import { PositionMenu } from "../floating/PositionMenu";
 import { isAppDrag, APP_MIME } from "../../lib/dnd";
 import { LayoutGrid, Star } from "lucide-react";
 import type { AppView } from "../../lib/apps";
@@ -42,10 +45,12 @@ export function Dock({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const dropSlot = useRef<number | null>(null);
 
+  const [posMenu, setPosMenu] = useState<{ x: number; y: number } | null>(null);
   usePanelDrag(ref, {
     getPanel: () => ref.current,
     onEnd: (x, y) => updateDock({ x, y, anchored: false }),
     disabled: dock.locked || !dock.visible,
+    snap: (x, y, w, h) => computeSnap(x, y, w, h, viewport.w, viewport.h, collectSnapTargets(ref.current)),
   });
 
   const vertical = dock.orientation === "vertical";
@@ -322,7 +327,15 @@ export function Dock({
       }}
       title={dock.locked ? "Dock locked — right-click to unlock" : "Drag to move · right-click to lock"}
     >
-      <DragGrip locked={dock.locked} className="size-6 shrink-0 text-mist-500" />
+      <DragGrip
+        locked={dock.locked}
+        className="size-6 shrink-0 text-mist-500"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setPosMenu({ x: e.clientX, y: e.clientY });
+        }}
+      />
 
       {views.map((view, index) => {
         const k = exeKey(view.app.executableName);
@@ -445,6 +458,10 @@ export function Dock({
       >
         <Star size={Math.round(icon * 0.4)} strokeWidth={1.7} />
       </button>
+      {posMenu && createPortal(
+        <PositionMenu target={{ kind: "dock" }} x={posMenu.x} y={posMenu.y} onClose={() => setPosMenu(null)} />,
+        document.body,
+      )}
     </div>
   );
 }

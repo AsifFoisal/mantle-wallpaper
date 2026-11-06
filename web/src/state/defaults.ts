@@ -128,6 +128,7 @@ export function createDefaultState(): PersistedState {
     settings: structuredClone(DEFAULT_SETTINGS),
     categories: structuredClone(DEFAULT_CATEGORIES),
     panels,
+    panelGroups: [],
     dock: structuredClone(DEFAULT_DOCK),
     appOverrides: {},
     settingsPanel: defaultSettingsPanel(),

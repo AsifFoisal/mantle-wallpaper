@@ -13,6 +13,7 @@ import { FavoritesOverlay } from "./components/panels/FavoritesOverlay";
 import { SearchPalette } from "./components/search/SearchPalette";
 import { SettingsWindow, type SettingsSection } from "./components/settings/SettingsWindow";
 import { Toasts } from "./components/ui/Toasts";
+import { SnapGuides } from "./components/floating/SnapGuides";
 import { OfflineChip } from "./components/ui/OfflineChip";
 import { FirstRunHint } from "./components/ui/FirstRunHint";
 import { ContextMenuLayer } from "./components/panels/AppContextMenu";
@@ -190,6 +191,7 @@ export default function App() {
 
       <OfflineChip />
       <Toasts />
+      <SnapGuides />
 
       <FirstRunHint
         visible={pendingHint && !anyPanelOpen && !onboardingDismissed}

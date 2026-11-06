@@ -15,6 +15,12 @@ export interface DragConfig {
    * components with no visual grip worth holding (e.g. the tiny settings orb).
    */
   handleSelector?: string;
+  /**
+   * Magnetic snapping. Receives the clamped visual position and the panel
+   * size; returns the snapped position plus guide-line coordinates (viewport
+   * px). Guides are broadcast as `mantle:snap` events for the overlay.
+   */
+  snap?: (x: number, y: number, w: number, h: number) => { x: number; y: number; v?: number; h?: number };
 }
 
 /**
@@ -91,8 +97,17 @@ export function usePanelDrag(ref: React.RefObject<HTMLElement | null>, cfg: Drag
       e.preventDefault();
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const nx = Math.max(4, Math.min(state.panelX + dx, vw - panel.offsetWidth - 4));
-      const ny = Math.max(4, Math.min(state.panelY + dy, vh - panel.offsetHeight - 4));
+      let nx = Math.max(4, Math.min(state.panelX + dx, vw - panel.offsetWidth - 4));
+      let ny = Math.max(4, Math.min(state.panelY + dy, vh - panel.offsetHeight - 4));
+      const snap = cfgRef.current.snap;
+      let guides: { v?: number; h?: number } = {};
+      if (snap) {
+        const s = snap(nx, ny, panel.offsetWidth, panel.offsetHeight);
+        nx = s.x;
+        ny = s.y;
+        guides = { v: s.v, h: s.h };
+      }
+      window.dispatchEvent(new CustomEvent("mantle:snap", { detail: guides }));
       panel.style.left = `${nx - state.kX}px`;
       panel.style.top = `${ny - state.kY}px`;
       cfgRef.current.onMove?.(nx, ny);
@@ -103,6 +118,7 @@ export function usePanelDrag(ref: React.RefObject<HTMLElement | null>, cfg: Drag
       const s = state;
       state = null;
       document.body.classList.remove("is-dragging");
+      window.dispatchEvent(new CustomEvent("mantle:snap", { detail: {} }));
       try {
         el.releasePointerCapture(e.pointerId);
       } catch {

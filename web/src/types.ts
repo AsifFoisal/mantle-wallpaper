@@ -60,6 +60,12 @@ export interface PanelGeometry {
   locked: boolean;
 }
 
+/** A rigid group of collection panels: members move and align together. */
+export interface PanelGroup {
+  id: string;
+  members: string[];
+}
+
 export interface FloatingPos {
   x: number;
   y: number;
@@ -145,6 +151,7 @@ export interface PersistedState {
   settings: Settings;
   categories: Category[];
   panels: Record<string, PanelGeometry>;
+  panelGroups: PanelGroup[];
   dock: DockSettings;
   appOverrides: AppOverrideMap;
   settingsPanel: { x: number; y: number; open: boolean };

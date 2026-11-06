@@ -61,6 +61,12 @@ export interface Store {
   updateDock: (patch: Partial<DockSettings>) => void;
   updatePanel: (categoryId: string, patch: Partial<PanelGeometry>) => void;
 
+  /** Rigid panel groups: members drag and align together. */
+  createPanelGroup: (memberIds: string[]) => string;
+  addPanelMembers: (groupId: string, memberIds: string[]) => void;
+  removeFromPanelGroup: (panelId: string) => void;
+  ungroupPanels: (groupId: string) => void;
+
   addCategory: (name: string, icon?: Category["icon"], color?: string) => string;
   updateCategory: (id: string, patch: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
@@ -247,6 +253,25 @@ export const useStore = create<Store>((set, get) => {
       p.panels[categoryId] = { ...current, ...patch };
     }),
 
+    createPanelGroup: (memberIds) => {
+      const id = uid("grp");
+      commit((p) => {
+        p.panelGroups = [...p.panelGroups.filter((g) => !g.members.some((m) => memberIds.includes(m))), { id, members: [...memberIds] }];
+      });
+      return id;
+    },
+    addPanelMembers: (groupId, memberIds) => commit((p) => {
+      p.panelGroups = p.panelGroups.map((g) => (g.id === groupId ? { ...g, members: [...new Set([...g.members, ...memberIds])] } : g));
+    }),
+    removeFromPanelGroup: (panelId) => commit((p) => {
+      p.panelGroups = p.panelGroups
+        .map((g) => ({ ...g, members: g.members.filter((m) => m !== panelId) }))
+        .filter((g) => g.members.length >= 2);
+    }),
+    ungroupPanels: (groupId) => commit((p) => {
+      p.panelGroups = p.panelGroups.filter((g) => g.id !== groupId);
+    }),
+
     addCategory: (name, icon = "folder", color = "#d9c7a3") => {
       const id = uid("cat");
       commit((p) => {
@@ -262,6 +287,9 @@ export const useStore = create<Store>((set, get) => {
     deleteCategory: (id) => commit((p) => {
       p.categories = p.categories.filter((c) => c.id !== id);
       delete p.panels[id];
+      p.panelGroups = p.panelGroups
+        .map((g) => ({ ...g, members: g.members.filter((m) => m !== id) }))
+        .filter((g) => g.members.length >= 2);
       for (const override of Object.values(p.appOverrides)) {
         if (override.categories) override.categories = override.categories.filter((c) => c !== id);
       }

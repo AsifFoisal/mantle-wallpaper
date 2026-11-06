@@ -12,11 +12,14 @@ export function DragGrip({
   hint = "Drag to move",
   children,
   className = "",
+  onContextMenu,
 }: {
   locked?: boolean;
   hint?: string;
   children?: ReactNode;
   className?: string;
+  /** Right-click opens the position / group menu (see PositionMenu). */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }) {
   return (
     <span
@@ -25,8 +28,9 @@ export function DragGrip({
       role="separator"
       aria-orientation="horizontal"
       aria-label={locked ? "Position locked" : hint}
-      title={locked ? "Position locked" : hint}
+      title={locked ? "Position locked · right-click for positions" : hint}
       aria-disabled={locked}
+      onContextMenu={onContextMenu}
       // React's synthetic system delegates to root — stopping propagation here
       // would also swallow the window-level pointerdown gate in usePanelDrag.
       // No stopPropagation: the hook itself ignores presses off the grip.

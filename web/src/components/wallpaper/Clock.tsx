@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useStore } from "../../state/store";
 import { useViewportSize, resolvePosition } from "../../hooks/useAppIndex";
 import { useRef } from "react";
 import { usePanelDrag } from "../floating/usePanelDrag";
 import { DragGrip } from "../floating/DragGrip";
+import { collectSnapTargets, computeSnap } from "../../lib/positioning";
+import { PositionMenu } from "../floating/PositionMenu";
 import { Lock } from "lucide-react";
 
 function greetingFor(hour: number): string {
@@ -44,10 +47,12 @@ export function Clock() {
     };
   }, []);
 
+  const [posMenu, setPosMenu] = useState<{ x: number; y: number } | null>(null);
   usePanelDrag(ref, {
     getPanel: () => ref.current,
     onEnd: (x, y) => updateSettings({ clockPosition: { x, y } }),
     disabled: settings.clockLocked,
+    snap: (x, y, w, h) => computeSnap(x, y, w, h, viewport.w, viewport.h, collectSnapTargets(ref.current)),
   });
 
   if (!settings.showClock && !settings.showDate) return null;
@@ -77,7 +82,15 @@ export function Clock() {
       onPointerLeave={() => setHover(false)}
     >
       <div className="mb-2 flex" style={{ paddingLeft: 6 }}>
-        <DragGrip locked={settings.clockLocked} className="size-6 text-mist-300" />
+        <DragGrip
+          locked={settings.clockLocked}
+          className="size-6 text-mist-300"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setPosMenu({ x: e.clientX, y: e.clientY });
+          }}
+        />
       </div>
       {settings.showClock && (
         <div className="flex items-start gap-2">
@@ -118,6 +131,10 @@ export function Clock() {
       >
         <Lock size={11} className="text-mist-500" />
       </div>
+      {posMenu && createPortal(
+        <PositionMenu target={{ kind: "clock" }} x={posMenu.x} y={posMenu.y} onClose={() => setPosMenu(null)} />,
+        document.body,
+      )}
     </div>
   );
 }

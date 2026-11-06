@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useDragScroll } from "../../hooks/useDragScroll";
 import { Check, Copy, Eye, EyeOff, FolderOpen, RefreshCw, Search, Star, ArrowUpDown } from "lucide-react";
 import { useStore } from "../../state/store";
 import { useViewportSize, resolvePosition } from "../../hooks/useAppIndex";
 import { usePanelDrag } from "../floating/usePanelDrag";
 import { DragGrip } from "../floating/DragGrip";
+import { collectSnapTargets, computeSnap } from "../../lib/positioning";
+import { PositionMenu } from "../floating/PositionMenu";
 import { GLASS_CLASS } from "../floating/FloatingWindow";
 import { CategoryGlyph } from "../ui/CategoryGlyph";
 import { AppIcon } from "../ui/AppIcon";
@@ -31,10 +35,14 @@ export function SettingsWindow({ section, onSection }: { section: SettingsSectio
   const viewport = useViewportSize();
   const ref = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  useDragScroll(contentRef);
 
+  const [posMenu, setPosMenu] = useState<{ x: number; y: number } | null>(null);
   usePanelDrag(headerRef, {
     getPanel: () => ref.current,
     onEnd: (x, y) => setPos(x, y),
+    snap: (x, y, w, h) => computeSnap(x, y, w, h, viewport.w, viewport.h, collectSnapTargets(ref.current)),
   });
 
   const width = Math.min(760, viewport.w - 48);
@@ -51,7 +59,14 @@ export function SettingsWindow({ section, onSection }: { section: SettingsSectio
       style={{ left: clamped.x, top: clamped.y, width, height }}
     >
       <div ref={headerRef} className="flex shrink-0 items-center gap-3 px-4 pb-3 pt-3.5" style={{ touchAction: "none", cursor: "auto" }}>
-        <DragGrip className="size-7 text-mist-500" />
+        <DragGrip
+          className="size-7 text-mist-500"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setPosMenu({ x: e.clientX, y: e.clientY });
+          }}
+        />
         <div className="flex size-7 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.04]">
           <span className="font-serif text-[16px] italic leading-none text-champagne-300">n</span>
         </div>
@@ -86,7 +101,7 @@ export function SettingsWindow({ section, onSection }: { section: SettingsSectio
             </button>
           ))}
         </nav>
-        <div className="min-w-0 flex-1 overflow-y-auto px-5 py-4">
+        <div ref={contentRef} className="min-w-0 flex-1 overflow-y-auto px-5 py-4">
           {section === "general" && <GeneralSection />}
           {section === "categories" && <CategoriesSection />}
           {section === "applications" && <ApplicationsSection />}
@@ -97,6 +112,10 @@ export function SettingsWindow({ section, onSection }: { section: SettingsSectio
           {section === "about" && <AboutSection />}
         </div>
       </div>
+      {posMenu && createPortal(
+        <PositionMenu target={{ kind: "settings" }} x={posMenu.x} y={posMenu.y} onClose={() => setPosMenu(null)} />,
+        document.body,
+      )}
     </div>
   );
 }
@@ -318,6 +337,8 @@ function CategoryEditor({ cat, onDone }: { cat: Category; onDone: () => void }) 
 }
 
 function ApplicationsSection() {
+  const listRef = useRef<HTMLDivElement | null>(null);
+  useDragScroll(listRef);
   const apps = useStore((s) => s.apps);
   const overrides = useStore((s) => s.persist.appOverrides);
   const categories = useStore((s) => s.persist.categories);
@@ -398,7 +419,7 @@ function ApplicationsSection() {
         </Button>
       </div>
 
-      <div className="mt-3 max-h-[320px] overflow-y-auto rounded-xl border border-white/[0.05]">
+      <div ref={listRef} className="mt-3 max-h-[320px] overflow-y-auto rounded-xl border border-white/[0.05]">
         {rows.length === 0 && (
           <div className="grid place-items-center py-10 text-[12px] text-mist-600">
             {online ? "No applications match." : "Companion offline — detected apps unavailable."}
@@ -690,6 +711,12 @@ function AboutSection() {
         {["Ctrl K search", "Right-click apps for options", "Drag anything to move", "Right-click dock to lock"].map((k) => (
           <kbd key={k} className="rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5">{k}</kbd>
         ))}
+      </div>
+      <div className="rounded-xl border border-white/[0.05] bg-black/20 px-3 py-2.5 text-[11px] leading-relaxed text-mist-500">
+        <span className="font-medium text-mist-300">Scrolling:</span> Lively never forwards mouse-wheel events to
+        web wallpapers (upstream bug rocksdanister/lively#3042 — affects every web wallpaper). Press empty space inside a list and drag to
+        scroll — a quick flick keeps gliding; middle-button drag pans even from over icons. The mouse wheel works
+        normally when the wallpaper is open in a browser.
       </div>
     </div>
   );

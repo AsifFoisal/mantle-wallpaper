@@ -1,9 +1,13 @@
 import { useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useDragScroll } from "../../hooks/useDragScroll";
 import { Search, X, Folder, CornerDownLeft, LayoutGrid, Star, GripVertical } from "lucide-react";
 import { useStore } from "../../state/store";
 import { useViewportSize } from "../../hooks/useAppIndex";
 import { usePanelDrag } from "../floating/usePanelDrag";
 import { DragGrip } from "../floating/DragGrip";
+import { collectSnapTargets, computeSnap } from "../../lib/positioning";
+import { PositionMenu } from "../floating/PositionMenu";
 import { GLASS_CLASS } from "../floating/FloatingWindow";
 import { AppIcon } from "../ui/AppIcon";
 import { CategoryGlyph } from "../ui/CategoryGlyph";
@@ -43,11 +47,15 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLDivElement | null>(null);
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  useDragScroll(resultsRef);
   const { visible } = useAppIndex();
 
+  const [posMenu, setPosMenu] = useState<{ x: number; y: number } | null>(null);
   usePanelDrag(headerRef, {
     getPanel: () => boxRef.current,
     onEnd: (x, y) => setSearchPanelPos(x, y),
+    snap: (x, y, w, h) => computeSnap(x, y, w, h, viewport.w, viewport.h, collectSnapTargets(boxRef.current)),
   });
 
   const q = query.trim().toLowerCase();
@@ -125,7 +133,14 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
         style={{ left: pos.x, top: pos.y, width: w, height: h }}
       >
         <div ref={headerRef} className="flex items-center gap-3 px-4 pb-3 pt-3.5" style={{ cursor: "auto" }}>
-          <DragGrip className="size-7 text-mist-500" />
+          <DragGrip
+            className="size-7 text-mist-500"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPosMenu({ x: e.clientX, y: e.clientY });
+            }}
+          />
           <Search size={15} className="shrink-0 text-mist-500" strokeWidth={1.8} />
           <input
             ref={inputRef}
@@ -149,7 +164,7 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
           )}
         </div>
         <div className="h-px bg-white/[0.06]" />
-        <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
+        <div ref={resultsRef} className="min-h-0 flex-1 overflow-y-auto p-1.5">
           {rows.length === 0 && (
             <div className="grid place-items-center py-16 text-[12px] text-mist-600">Nothing matches “{query}”</div>
           )}
@@ -230,13 +245,17 @@ export function SearchPalette({ onClose }: { onClose: () => void }) {
         )}
         {!assignTarget && (
         <div className="flex items-center gap-4 border-t border-white/[0.06] px-4 py-2 text-[10px] uppercase tracking-[0.16em] text-mist-600">
-          <span className="flex items-center gap-1"><GripVertical size={10} /> drag to move</span>
+          <span className="flex items-center gap-1"><GripVertical size={10} /> drag to move · right-click grip for positions</span>
           <span>↑↓ navigate</span>
           <span>↵ open</span>
           <span className="flex items-center gap-1"><Folder size={10} /> categories included</span>
         </div>
         )}
       </div>
+      {posMenu && createPortal(
+        <PositionMenu target={{ kind: "search" }} x={posMenu.x} y={posMenu.y} onClose={() => setPosMenu(null)} />,
+        document.body,
+      )}
     </div>
   );
 }

@@ -1,10 +1,13 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useStore } from "../../state/store";
 import { useViewportSize } from "../../hooks/useAppIndex";
 import { resolvePosition } from "../../hooks/useAppIndex";
 import { usePanelDrag } from "./usePanelDrag";
 import { Settings2, Lock } from "lucide-react";
 import { GLASS_CLASS } from "./FloatingWindow";
+import { collectSnapTargets, computeSnap } from "../../lib/positioning";
+import { PositionMenu } from "./PositionMenu";
 
 const MENU_ITEMS: { id: string; label: string }[] = [
   { id: "categories", label: "Categories" },
@@ -28,6 +31,7 @@ export function SettingsButton({ onOpenTo }: { onOpenTo: (section: string) => vo
   const orbRef = useRef<HTMLDivElement | null>(null);
   const [hover, setHover] = useState(false);
 
+  const [posMenu, setPosMenu] = useState<{ x: number; y: number } | null>(null);
   usePanelDrag(orbRef, {
     getPanel: () => orbRef.current,
     onEnd: (x, y) => update({ x, y }),
@@ -35,6 +39,7 @@ export function SettingsButton({ onOpenTo }: { onOpenTo: (section: string) => vo
     // The orb is the drag section itself — a `;;;` grip inside a 40px circle
     // would be too small to hold.
     handleSelector: "",
+    snap: (x, y, w, h) => computeSnap(x, y, w, h, viewport.w, viewport.h, collectSnapTargets(orbRef.current)),
   });
 
   if (!fb.visible) return null;
@@ -55,6 +60,7 @@ export function SettingsButton({ onOpenTo }: { onOpenTo: (section: string) => vo
         <div className="relative">
           <div
             ref={orbRef}
+            data-floating-root="orb"
             role="button"
             tabIndex={0}
             aria-label="Open settings · drag to move"
@@ -65,6 +71,11 @@ export function SettingsButton({ onOpenTo }: { onOpenTo: (section: string) => vo
                 e.preventDefault();
                 onOpenTo("general");
               }
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPosMenu({ x: e.clientX, y: e.clientY });
             }}
             className={`group grid size-10 place-items-center rounded-full text-mist-300 transition-colors duration-300 hover:text-mist-100 ${GLASS_CLASS} cursor-grab rounded-full hover:bg-white/[0.07]`}
             style={{ touchAction: "none" }}
@@ -101,6 +112,10 @@ export function SettingsButton({ onOpenTo }: { onOpenTo: (section: string) => vo
             </button>
           ))}
         </div>
+        {posMenu && createPortal(
+          <PositionMenu target={{ kind: "orb" }} x={posMenu.x} y={posMenu.y} onClose={() => setPosMenu(null)} />,
+          document.body,
+        )}
       </div>
     </div>
   );

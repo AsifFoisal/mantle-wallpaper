@@ -65,3 +65,4 @@ Run every suite after touching panel layout, drag, or the store.
 - New Windows integrations belong in `server/powershell/` + `src/scripts.ts`; keep `spawn` args as arrays, never shell strings.
 - The visual tokens (`GLASS_CLASS`, colours, type scale) are documented in [DESIGN.md](DESIGN.md) — reuse them rather than inventing new surfaces.
 - Test scripts share no helpers: if you change test selectors, update `tools/*.mjs` together.
+- Lively never forwards mouse-wheel events to web wallpapers ([rocksdanister/lively#3042](https://github.com/rocksdanister/lively/issues/3042)); every scrollable surface wires `hooks/useDragScroll.ts` (press-drag pan, flick momentum, middle-drag). Never build wheel-only interactions.
